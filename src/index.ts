@@ -24,6 +24,7 @@ const startServer = async () => {
 	const server = new ApolloServer({
 		typeDefs,
 		resolvers,
+		introspection: true, // ✅ enables introspection
 		plugins: [
 			ApolloServerPluginLandingPageLocalDefault({ embed: true }), // ✅ enables playground
 		],
