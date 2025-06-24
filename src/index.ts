@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import dotenv from "dotenv";
 import { typeDefs } from "./schema";
 import { resolvers } from "./resolvers";
+import { ApolloServerPluginLandingPageLocalDefault } from "@apollo/server/plugin/landingPage/default";
 
 dotenv.config();
 
@@ -23,6 +24,9 @@ const startServer = async () => {
 	const server = new ApolloServer({
 		typeDefs,
 		resolvers,
+		plugins: [
+			ApolloServerPluginLandingPageLocalDefault({ embed: true }), // ✅ enables playground
+		],
 	});
 
 	// Start server (standalone mode)
