@@ -1,4 +1,9 @@
 export const typeDefs = `
+	enum FilterKey {
+  		CUISINE
+  		DIFFICULTY
+  		MEALTYPE
+	}
 	type Recipe {
 		id: Int
 		name: String
@@ -42,6 +47,14 @@ export const typeDefs = `
 		recipe(id: Int!): Recipe
 		allCuisines: [String]
 		allMealTypes: [String]
+		filterByRecipe(
+			key: FilterKey!
+			value: String!
+			limit: Int
+			skip: Int
+			sortBy: String
+			sortOrder: String
+		): [Recipe]
 	}
 
 	type Mutation {

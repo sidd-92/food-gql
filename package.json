@@ -3,9 +3,11 @@
 	"version": "1.0.0",
 	"main": "index.js",
 	"scripts": {
+		"compile_and_watch": "tsc --watch",
 		"compile": "tsc",
 		"start": "npm run compile && node ./dist/index.js",
-		"seed": "npm run compile && node ./dist/seed.js"
+		"seed": "npm run compile && node ./dist/seed.js",
+		"dev": "nodemon"
 	},
 	"keywords": [],
 	"author": "",
@@ -14,6 +16,7 @@
 	"devDependencies": {
 		"@types/axios": "^0.9.36",
 		"@types/node": "^22.15.30",
+		"nodemon": "^3.1.10",
 		"typescript": "^5.8.3"
 	},
 	"dependencies": {

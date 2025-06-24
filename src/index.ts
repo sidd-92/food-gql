@@ -26,7 +26,18 @@ const startServer = async () => {
 		resolvers,
 		introspection: true, // ✅ enables introspection
 		plugins: [
-			ApolloServerPluginLandingPageLocalDefault({ embed: true }), // ✅ enables playground
+			ApolloServerPluginLandingPageLocalDefault({ embed: true }),
+			{
+				async requestDidStart(requestContext) {
+					const query = requestContext.request.query?.trim().replace(/\s+/g, " ");
+					console.log(`🔍 Request started: ${query}`);
+					return {
+						async willSendResponse() {
+							console.log(`✅ Response sent`);
+						},
+					};
+				},
+			}, // ✅ enables playground
 		],
 	});
 

@@ -27,6 +27,43 @@ export const resolvers = {
 			]);
 			return result.map((r) => r._id);
 		},
+		filterByRecipe: async (
+			_: any,
+			args: {
+				key: "CUISINE" | "DIFFICULTY" | "MEALTYPE";
+				value: string;
+				limit?: number;
+				skip?: number;
+				sortBy?: string;
+				sortOrder?: string;
+			}
+		) => {
+			const { key, value, limit = 10, skip = 0, sortBy = "_id", sortOrder = "desc" } = args;
+
+			const keyMap: Record<string, string> = {
+				CUISINE: "cuisine",
+				DIFFICULTY: "difficulty",
+				MEALTYPE: "mealType",
+			};
+
+			const field = keyMap[key];
+
+			if (!field) {
+				throw new Error("Invalid filter key");
+			}
+
+			const isArrayField = ["mealType"].includes(field);
+
+			const filter = isArrayField
+				? { [field]: { $in: [new RegExp(value, "i")] } }
+				: { [field]: { $regex: value, $options: "i" } }; // partial + case-insensitive
+
+			const sort: Record<string, 1 | -1> = {
+				[sortBy]: sortOrder.toLowerCase() === "asc" ? 1 : -1,
+			};
+
+			return await Recipe.find(filter).skip(skip).limit(limit).sort(sort);
+		},
 	},
 	Mutation: {
 		createRecipe: async (_: any, args: { input: any }) => {
