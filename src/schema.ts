@@ -1,4 +1,22 @@
 export const typeDefs = `
+	type User {
+    	id: ID!
+    	username: String!
+    	email: String!
+  	}
+	type AuthPayload {
+    	token: String!
+    	user: User!
+  	}
+	input LoginInput {
+    	identifier: String!  # can be username or email
+    	password: String!
+  	}
+	input RegisterInput {
+    	username: String!
+    	email: String!
+    	password: String!
+  	}	
 	enum FilterKey {
   		CUISINE
   		DIFFICULTY
@@ -59,5 +77,7 @@ export const typeDefs = `
 
 	type Mutation {
         createRecipe(input: RecipeInput!): Recipe
+		register(input: RegisterInput!): AuthPayload!
+		login(input: LoginInput!): AuthPayload!
     }
 `;

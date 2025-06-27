@@ -1,8 +1,14 @@
+import dotenv from "dotenv";
+dotenv.config();
 import { Recipe } from "./models/Recipie";
-
+import { User } from "./models/User";
+import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
+const JWT_SECRET = process.env.JWT_SECRET!;
 export const resolvers = {
 	Query: {
-		recipes: async (_: any, args: { limit?: number; skip?: number }) => {
+		recipes: async (_: any, args: { limit?: number; skip?: number }, context: { user: any }) => {
+			if (!context.user) throw new Error("Unauthorized access. Please log in.");
 			const { limit, skip } = args;
 
 			let query = Recipe.find().sort({ _id: -1 });
@@ -75,6 +81,63 @@ export const resolvers = {
 				console.error("❌ Failed to save recipe:", err);
 				throw new Error("Failed to create recipe");
 			}
+		},
+		login: async (_: any, { input }: any) => {
+			const { identifier, password } = input;
+
+			// Check for user by username or email
+			const user = await User.findOne({
+				$or: [{ username: identifier }, { email: identifier }],
+			});
+
+			if (!user) throw new Error("User not found");
+
+			const valid = await bcrypt.compare(password, user.password);
+			if (!valid) throw new Error("Invalid password");
+
+			const token = jwt.sign({ id: user._id, username: user.username }, JWT_SECRET, {
+				expiresIn: "7d",
+			});
+
+			return {
+				token,
+				user: {
+					id: user._id,
+					username: user.username,
+					email: user.email,
+				},
+			};
+		},
+		register: async (_: any, { input }: any) => {
+			const { username, email, password } = input;
+
+			// Check if user exists
+			const existing = await User.findOne({ $or: [{ username }, { email }] });
+			if (existing) throw new Error("Username or email already exists");
+
+			// Hash the password
+			const hashedPassword = await bcrypt.hash(password, 10);
+
+			// Save user
+			const newUser = await User.create({
+				username,
+				email,
+				password: hashedPassword,
+			});
+
+			// Generate JWT
+			const token = jwt.sign({ id: newUser._id, username: newUser.username }, JWT_SECRET, {
+				expiresIn: "7d",
+			});
+
+			return {
+				token,
+				user: {
+					id: newUser._id,
+					username: newUser.username,
+					email: newUser.email,
+				},
+			};
 		},
 	},
 };
