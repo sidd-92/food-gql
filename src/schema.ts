@@ -6,6 +6,7 @@ export const typeDefs = `
   	}
 	type AuthPayload {
     	token: String!
+		refreshToken: String!
     	user: User!
   	}
 	input LoginInput {
@@ -79,5 +80,6 @@ export const typeDefs = `
         createRecipe(input: RecipeInput!): Recipe
 		register(input: RegisterInput!): AuthPayload!
 		login(input: LoginInput!): AuthPayload!
+		refreshToken(token: String!): AuthPayload!
     }
 `;

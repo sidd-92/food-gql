@@ -4,6 +4,7 @@ import { Recipe } from "./models/Recipie";
 import { User } from "./models/User";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
+import { createAccessToken, createRefreshToken, verifyRefreshToken } from "./utils/auth";
 const JWT_SECRET = process.env.JWT_SECRET!;
 export const resolvers = {
 	Query: {
@@ -82,25 +83,45 @@ export const resolvers = {
 				throw new Error("Failed to create recipe");
 			}
 		},
+		register: async (_: any, { input }: any) => {
+			const { username, email, password } = input;
+
+			const existing = await User.findOne({ $or: [{ username }, { email }] });
+			if (existing) throw new Error("Username or email already exists");
+
+			const hashedPassword = await bcrypt.hash(password, 10);
+			const newUser = await User.create({ username, email, password: hashedPassword });
+
+			const token = createAccessToken(newUser);
+			const refreshToken = createRefreshToken(newUser);
+
+			return {
+				token,
+				refreshToken,
+				user: {
+					id: newUser._id,
+					username: newUser.username,
+					email: newUser.email,
+				},
+			};
+		},
 		login: async (_: any, { input }: any) => {
 			const { identifier, password } = input;
 
-			// Check for user by username or email
 			const user = await User.findOne({
 				$or: [{ username: identifier }, { email: identifier }],
 			});
-
 			if (!user) throw new Error("User not found");
 
 			const valid = await bcrypt.compare(password, user.password);
 			if (!valid) throw new Error("Invalid password");
 
-			const token = jwt.sign({ id: user._id, username: user.username }, JWT_SECRET, {
-				expiresIn: "7d",
-			});
+			const token = createAccessToken(user);
+			const refreshToken = createRefreshToken(user);
 
 			return {
 				token,
+				refreshToken,
 				user: {
 					id: user._id,
 					username: user.username,
@@ -108,36 +129,27 @@ export const resolvers = {
 				},
 			};
 		},
-		register: async (_: any, { input }: any) => {
-			const { username, email, password } = input;
+		refreshToken: async (_: any, { token }: any) => {
+			try {
+				const decoded: any = verifyRefreshToken(token);
+				const user = await User.findById(decoded.id);
+				if (!user) throw new Error("User not found");
 
-			// Check if user exists
-			const existing = await User.findOne({ $or: [{ username }, { email }] });
-			if (existing) throw new Error("Username or email already exists");
+				const newAccessToken = createAccessToken(user);
+				const newRefreshToken = createRefreshToken(user);
 
-			// Hash the password
-			const hashedPassword = await bcrypt.hash(password, 10);
-
-			// Save user
-			const newUser = await User.create({
-				username,
-				email,
-				password: hashedPassword,
-			});
-
-			// Generate JWT
-			const token = jwt.sign({ id: newUser._id, username: newUser.username }, JWT_SECRET, {
-				expiresIn: "7d",
-			});
-
-			return {
-				token,
-				user: {
-					id: newUser._id,
-					username: newUser.username,
-					email: newUser.email,
-				},
-			};
+				return {
+					token: newAccessToken,
+					refreshToken: newRefreshToken,
+					user: {
+						id: user._id,
+						username: user.username,
+						email: user.email,
+					},
+				};
+			} catch (err) {
+				throw new Error("Invalid refresh token");
+			}
 		},
 	},
 };
