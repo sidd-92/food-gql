@@ -14,3 +14,18 @@ export const createRefreshToken = (user: any) =>
 	});
 
 export const verifyRefreshToken = (token: string) => jwt.verify(token, REFRESH_TOKEN_SECRET);
+
+export const decodeUserFromToken = (authHeader?: string) => {
+	if (!authHeader) return null;
+
+	const token = authHeader.replace("Bearer ", "").trim();
+	if (!token) return null;
+
+	try {
+		const payload = jwt.verify(token, ACCESS_TOKEN_SECRET);
+		return payload;
+	} catch (err) {
+		console.warn("❌ Invalid access token");
+		return null;
+	}
+};

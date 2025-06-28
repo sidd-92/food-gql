@@ -9,9 +9,11 @@ import http from "http";
 import cors from "cors";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
+import cookieParser from "cookie-parser";
 
 import { typeDefs } from "./schema";
 import { resolvers } from "./resolvers";
+import { decodeUserFromToken } from "./utils/auth";
 
 dotenv.config();
 
@@ -61,22 +63,13 @@ const startServer = async () => {
 		"/",
 		cors<cors.CorsRequest>(),
 		express.json({ limit: "50mb" }),
+		cookieParser(),
 		expressMiddleware(server, {
-			context: async ({ req }) => {
-				const authHeader = req.headers.authorization || "";
-				const token = authHeader.replace("Bearer ", "");
-				let user = null;
-
-				if (token) {
-					try {
-						user = jwt.verify(token, process.env.JWT_SECRET!);
-					} catch (err: any) {
-						console.warn("❌ Invalid token:", err.message);
-					}
-				}
-
-				return { user }; // Available in all resolvers
-			},
+			context: async ({ req, res }) => ({
+				req,
+				res,
+				user: decodeUserFromToken(req.headers.authorization),
+			}),
 		})
 	);
 

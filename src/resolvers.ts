@@ -83,7 +83,7 @@ export const resolvers = {
 				throw new Error("Failed to create recipe");
 			}
 		},
-		register: async (_: any, { input }: any) => {
+		register: async (_: any, { input }: any, context: any) => {
 			const { username, email, password } = input;
 
 			const existing = await User.findOne({ $or: [{ username }, { email }] });
@@ -92,11 +92,19 @@ export const resolvers = {
 			const hashedPassword = await bcrypt.hash(password, 10);
 			const newUser = await User.create({ username, email, password: hashedPassword });
 
-			const token = createAccessToken(newUser);
+			const accessToken = createAccessToken(newUser);
 			const refreshToken = createRefreshToken(newUser);
 
+			// Set refresh token cookie
+			context.res.cookie("jid", refreshToken, {
+				httpOnly: true,
+				secure: process.env.NODE_ENV === "production",
+				sameSite: "lax",
+				path: "/",
+			});
+
 			return {
-				token,
+				token: accessToken,
 				refreshToken,
 				user: {
 					id: newUser._id,
@@ -105,7 +113,8 @@ export const resolvers = {
 				},
 			};
 		},
-		login: async (_: any, { input }: any) => {
+
+		login: async (_: any, { input }: any, context: any) => {
 			const { identifier, password } = input;
 
 			const user = await User.findOne({
@@ -116,11 +125,18 @@ export const resolvers = {
 			const valid = await bcrypt.compare(password, user.password);
 			if (!valid) throw new Error("Invalid password");
 
-			const token = createAccessToken(user);
+			const accessToken = createAccessToken(user);
 			const refreshToken = createRefreshToken(user);
 
+			context.res.cookie("jid", refreshToken, {
+				httpOnly: true,
+				secure: process.env.NODE_ENV === "production",
+				sameSite: "lax",
+				path: "/",
+			});
+
 			return {
-				token,
+				token: accessToken,
 				refreshToken,
 				user: {
 					id: user._id,
@@ -129,14 +145,25 @@ export const resolvers = {
 				},
 			};
 		},
-		refreshToken: async (_: any, { token }: any) => {
+
+		refreshToken: async (_: any, __: any, context: any) => {
 			try {
-				const decoded: any = verifyRefreshToken(token);
+				const cookieToken = context.req.cookies.jid;
+				if (!cookieToken) throw new Error("No refresh token");
+
+				const decoded: any = verifyRefreshToken(cookieToken);
 				const user = await User.findById(decoded.id);
 				if (!user) throw new Error("User not found");
 
 				const newAccessToken = createAccessToken(user);
 				const newRefreshToken = createRefreshToken(user);
+
+				context.res.cookie("jid", newRefreshToken, {
+					httpOnly: true,
+					secure: process.env.NODE_ENV === "production",
+					sameSite: "lax",
+					path: "/",
+				});
 
 				return {
 					token: newAccessToken,
