@@ -2,9 +2,10 @@ import dotenv from "dotenv";
 dotenv.config();
 import { Recipe } from "./models/Recipie";
 import { User } from "./models/User";
-import jwt from "jsonwebtoken";
+import { pubsub } from "./utils/pubSub";
 import bcrypt from "bcryptjs";
 import { createAccessToken, createRefreshToken, verifyRefreshToken } from "./utils/auth";
+const RECIPE_ADDED = "RECIPE_ADDED";
 export const resolvers = {
 	Query: {
 		recipes: async (_: any, args: { limit?: number; skip?: number }, context: { user: any }) => {
@@ -82,6 +83,10 @@ export const resolvers = {
 			try {
 				const newRecipe = new Recipe(args.input);
 				const saved = await newRecipe.save();
+
+				// 🔔 Publish the new recipe
+				pubsub.publish(RECIPE_ADDED, { recipeAdded: saved });
+
 				return saved;
 			} catch (err) {
 				console.error("❌ Failed to save recipe:", err);
@@ -182,6 +187,12 @@ export const resolvers = {
 			} catch (err) {
 				throw new Error("Invalid refresh token");
 			}
+		},
+	},
+	Subscription: {
+		// 👇 Add the subscription resolver
+		recipeAdded: {
+			subscribe: () => pubsub.asyncIterableIterator([RECIPE_ADDED]),
 		},
 	},
 };

@@ -9,9 +9,9 @@ import cors from "cors";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
-
-// GraphQL core imports
-import { GraphQLSchema, GraphQLObjectType, GraphQLString } from "graphql";
+import { makeExecutableSchema } from "@graphql-tools/schema";
+import { typeDefs } from "./schema";
+import { resolvers } from "./resolvers";
 
 // WebSocket + Subscription setup
 import { WebSocketServer } from "ws";
@@ -28,31 +28,9 @@ interface MyContext {
 	user?: any;
 }
 
-// 👇 Manually constructed GraphQL schema with a Query and a Subscription
-const schema = new GraphQLSchema({
-	query: new GraphQLObjectType({
-		name: "Query",
-		fields: {
-			hello: {
-				type: GraphQLString,
-				resolve: () => "world",
-			},
-		},
-	}),
-	subscription: new GraphQLObjectType({
-		name: "Subscription",
-		fields: {
-			greetings: {
-				type: GraphQLString,
-				subscribe: async function* () {
-					for (const hi of ["Hi", "Bonjour", "Hola", "Ciao", "Zdravo"]) {
-						yield { greetings: hi };
-						await new Promise((res) => setTimeout(res, 1000));
-					}
-				},
-			},
-		},
-	}),
+const schema = makeExecutableSchema({
+	typeDefs,
+	resolvers,
 });
 
 const startServer = async () => {

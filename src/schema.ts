@@ -1,4 +1,7 @@
 export const typeDefs = `
+	type Subscription {
+		recipeAdded: Recipe
+	}
 	type User {
     	id: ID!
     	username: String!
