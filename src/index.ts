@@ -3,7 +3,6 @@ import { ApolloServer } from "@apollo/server";
 import { expressMiddleware } from "@as-integrations/express5";
 import { ApolloServerPluginDrainHttpServer } from "@apollo/server/plugin/drainHttpServer";
 import { ApolloServerPluginLandingPageLocalDefault } from "@apollo/server/plugin/landingPage/default";
-import jwt from "jsonwebtoken";
 import express from "express";
 import http from "http";
 import cors from "cors";
@@ -11,8 +10,13 @@ import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 
-import { typeDefs } from "./schema";
-import { resolvers } from "./resolvers";
+// GraphQL core imports
+import { GraphQLSchema, GraphQLObjectType, GraphQLString } from "graphql";
+
+// WebSocket + Subscription setup
+import { WebSocketServer } from "ws";
+import { useServer } from "graphql-ws/lib/use/ws";
+
 import { decodeUserFromToken } from "./utils/auth";
 
 dotenv.config();
@@ -21,7 +25,35 @@ const PORT = parseInt(process.env.PORT || "4000");
 
 interface MyContext {
 	token?: string;
+	user?: any;
 }
+
+// 👇 Manually constructed GraphQL schema with a Query and a Subscription
+const schema = new GraphQLSchema({
+	query: new GraphQLObjectType({
+		name: "Query",
+		fields: {
+			hello: {
+				type: GraphQLString,
+				resolve: () => "world",
+			},
+		},
+	}),
+	subscription: new GraphQLObjectType({
+		name: "Subscription",
+		fields: {
+			greetings: {
+				type: GraphQLString,
+				subscribe: async function* () {
+					for (const hi of ["Hi", "Bonjour", "Hola", "Ciao", "Zdravo"]) {
+						yield { greetings: hi };
+						await new Promise((res) => setTimeout(res, 1000));
+					}
+				},
+			},
+		},
+	}),
+});
 
 const startServer = async () => {
 	// Connect to MongoDB
@@ -36,9 +68,27 @@ const startServer = async () => {
 	const app = express();
 	const httpServer = http.createServer(app);
 
+	// 👇 Set up WebSocket server for subscriptions
+	const wsServer = new WebSocketServer({
+		server: httpServer,
+		path: "/graphql",
+	});
+
+	const serverCleanup = useServer(
+		{
+			schema,
+			context: async (ctx) => {
+				const token =
+					typeof ctx.connectionParams?.authorization === "string" ? ctx.connectionParams.authorization : "";
+				const user = decodeUserFromToken(token);
+				return { user };
+			},
+		},
+		wsServer
+	);
+
 	const server = new ApolloServer<MyContext>({
-		typeDefs,
-		resolvers,
+		schema,
 		introspection: true,
 		plugins: [
 			ApolloServerPluginDrainHttpServer({ httpServer }),
@@ -50,6 +100,15 @@ const startServer = async () => {
 					return {
 						async willSendResponse() {
 							console.log(`✅ Response sent`);
+						},
+					};
+				},
+			},
+			{
+				async serverWillStart() {
+					return {
+						async drainServer() {
+							await serverCleanup.dispose();
 						},
 					};
 				},
